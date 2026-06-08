@@ -1,0 +1,18 @@
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "Dart-Code.dart-code",
+  "[dart]": {
+    "editor.formatOnSave": true,
+    "editor.rulers": [80, 120]
+  },
+  "files.associations": {
+    "*.json": "jsonc"
+  },
+  "dart.lineLength": 80,
+  "dart.completeFunctionCalls": true,
+  "security.allowedUNCPath": false,
+  "files.exclude": {
+    "**/build": true,
+    "**/.dart_tool": true
+  }
+}

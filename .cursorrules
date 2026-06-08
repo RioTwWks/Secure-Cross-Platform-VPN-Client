@@ -1,0 +1,35 @@
+# .cursorrules
+project:
+  name: "Secure Cross-Platform VPN Client"
+  description: "Flutter-based VPN client using Xray-core and sing-box with dynamic SOCKS5 authentication"
+  tech_stack:
+    - Flutter (Dart)
+    - Xray-core (Go)
+    - sing-box (Go)
+    - Platform channels (Android: Kotlin/Java, iOS: Swift, Windows/Linux/macOS: C++/Go via FFI)
+  security_requirements:
+    - No open SOCKS5 proxy on localhost without authentication.
+    - Implement per-session random username/password for SOCKS5 (dynamic credentials).
+    - Never hardcode or log credentials.
+    - Destroy credentials after VPN stop.
+    - All local proxy listeners must be bound to 127.0.0.1 and require authentication.
+    - Use split tunneling only with proper isolation (no bypass via localhost scanning).
+  architecture:
+    - Core engines: Xray-core and sing-box as separate binaries or libraries.
+    - Switchable engine at runtime.
+    - Flutter UI communicates with native engine via platform channels (or go-flutter plugin).
+    - VPN tunnel setup using Flutter VPN plugins (e.g., v2ray_box, wireguard_flutter_plus).
+  coding_guidelines:
+    - Follow effective Dart style guide.
+    - Write unit tests for credential generation and validation.
+    - Document any platform-specific code.
+    - Use Flutter Riverpod or Bloc for state management.
+  ai_assistance_preferences:
+    - Provide code snippets with full imports.
+    - When explaining, highlight security implications.
+    - Prefer solution using v2ray_box plugin as baseline.
+    - When generating configuration JSON for Xray/sing-box, include "inbounds" section with "auth": "password" and dynamic credentials.
+    - For native integration, show how to pass credentials from Dart to Go binary via stdin or environment variables.
+  known_vulnerability_context:
+    - March 2026: widespread vulnerability in Hiddify, v2rayNG, Happ etc. due to unauthenticated local SOCKS5 proxy (port 7890). Any app could read real IP and configs.
+    - Our solution must be immune: no listening on 0.0.0.0, always require auth, rotate credentials per session.
