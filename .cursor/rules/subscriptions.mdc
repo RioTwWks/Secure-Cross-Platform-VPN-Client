@@ -1,0 +1,37 @@
+---
+description: Subscription URL parsing and multi-format panel behavior
+globs: secure_vpn_client/lib/utils/config_parser.dart,secure_vpn_client/lib/services/vpn_service.dart
+alwaysApply: false
+---
+
+# Subscriptions
+
+Panels return **different bodies per User-Agent**. Never use default Dart `http` UA.
+
+## UA selection (`ConfigParser._subscriptionUserAgent`)
+
+| Engine | User-Agent | Response shape |
+|--------|------------|----------------|
+| xray | `v2rayNG/1.8.29` | JSON array of xray configs |
+| singbox | `sing-box` | Base64 → newline-separated links |
+
+Always send `Accept-Encoding: identity`.
+
+## Normalization pipeline
+
+1. Try base64 decode of body
+2. If `[` → `_selectV2rayNgConfig` (skip decoy entries)
+3. If `{` → raw JSON (rare on desktop; sanitize heavily)
+4. Else → first non-decoy config link per line
+
+## Post-processing (`injectSecureSocksInbound`)
+
+- xray: `_normalizeXraySubscriptionConfig` — rewrite `proxy` outbound tag, drop `api` rules
+- singbox: `_migrateSingboxLegacyDns`
+- desktop: `proxyOnly: true` — strip all inbounds, add secure SOCKS only
+
+## Adding a new panel format
+
+1. Document UA + sample body in `troubleshooting.md`
+2. Extend `normalizeSubscriptionContent` with detection branch
+3. Add fixture test in `config_parser_test.dart` (synthetic JSON, no live URLs)

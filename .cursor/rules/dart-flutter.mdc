@@ -1,0 +1,32 @@
+---
+description: Dart/Flutter conventions for secure_vpn_client
+globs: secure_vpn_client/**/*.dart
+alwaysApply: false
+---
+
+# Dart / Flutter
+
+## Structure
+
+- `lib/services/vpn_service.dart` — connect/disconnect orchestration
+- `lib/utils/config_parser.dart` — subscription normalization, secure inbound injection
+- `lib/utils/link_config_builder.dart` — share-link → JSON
+- `lib/providers/vpn_providers.dart` — Riverpod; persist profiles in SharedPreferences
+
+## Patterns
+
+- Use `ConfigParserException` for config errors; `StateError` in VpnService for runtime failures
+- Engine switch: disconnect first (`VpnService.setEngine`)
+- Subscription fetch **must** use engine-specific User-Agent in `ConfigParser.parseFromUrl`
+
+## Tests required when touching
+
+- `test/config_parser_test.dart` — injection, subscription, proxyOnly, DNS migration
+- `test/security_test.dart` — no 7890, 127.0.0.1 bind
+- `test/credential_service_test.dart` — credential generation
+
+## Style
+
+- `dart format` / 80-char line length (see `.cursor/settings.json`)
+- Minimal diffs; no unrelated refactors
+- Full imports in snippets

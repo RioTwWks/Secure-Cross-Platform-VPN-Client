@@ -1,0 +1,37 @@
+---
+description: Linux v2ray_box native plugin and desktop core spawning
+globs: packages/v2ray_box/linux/**
+alwaysApply: false
+---
+
+# Linux native plugin
+
+## Key files
+
+- `v2ray_box_plugin.cc` — Flutter method channel, `start_with_json`, `setup`, credentials
+- `desktop_core.cc` — `FindBinary`, `Start`/`Stop`, geo asset copy, stderr capture
+- `desktop_core.h` — path helpers, `EnsureXrayGeoAssets`, `WriteTextFile`
+
+## Binary discovery order
+
+1. Env `V2RAY_BOX_XRAY_PATH` / `V2RAY_BOX_SINGBOX_PATH`
+2. `{exe_dir}/lib/resources/{xray,sing-box}` ← Flutter bundle layout
+3. `~/.local/share/v2ray_box/cores/`
+
+## Runtime dirs
+
+- Work: `~/.local/share/v2ray_box/`
+- Config: `profiles/active_config.json`
+- Geo: `assets/{geoip,geosite}.dat` (copied from bundle on setup/start)
+
+## After changes
+
+Rebuild — hot reload does **not** apply:
+
+```bash
+cd secure_vpn_client && flutter run -d linux
+```
+
+## Error reporting
+
+`Start()` returns stderr text on failure; plugin maps to `START_ERROR` PlatformException.

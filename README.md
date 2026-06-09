@@ -39,17 +39,17 @@
 | Компонент          | Технология                                     |
 |--------------------|------------------------------------------------|
 | Интерфейс и логика | Flutter (Dart)                                |
-| VPN-туннелирование | Плагин [`v2ray_box`](https://pub.dev/packages/v2ray_box) (форк с патчами безопасности) |
-| Ядро 1             | [Xray-core](https://github.com/XTLS/Xray-core) (Go) |
-| Ядро 2             | [sing-box](https://github.com/SagerNet/sing-box) (Go) |
-| Нативные мосты     | Android (Kotlin/JNI), iOS (Swift), Windows/Linux/macOS (Go FFI) |
+| VPN-туннелирование | Локальный форк [`packages/v2ray_box`](packages/v2ray_box) (патчи безопасности) |
+| Ядро 1             | [Xray-core](https://github.com/XTLS/Xray-core) (Go, subprocess) |
+| Ядро 2             | [sing-box](https://github.com/SagerNet/sing-box) (Go, subprocess) |
+| Нативные мосты     | Android (Kotlin), iOS/macOS (Swift), Linux/Windows (C++ plugin) |
 
 ---
 
 ## 📋 Требования к окружению разработчика
 
-- Flutter SDK `>=3.22.0` (канал `stable`)
-- Dart SDK `>=3.4.0`
+- Flutter SDK `stable` (рекомендуется актуальный канал)
+- Dart SDK `^3.11.0` (см. `secure_vpn_client/pubspec.yaml`)
 - Для Android: Android Studio, SDK 23+, NDK
 - Для iOS/macOS: Xcode 15+, CocoaPods
 - Для Windows: Visual Studio 2022 с workload «Разработка классических приложений на C++»
@@ -62,9 +62,11 @@
 
 ### 1. Клонирование репозитория
 ```bash
-git clone https://github.com/yourusername/secure_vpn_client.git
-cd secure_vpn_client
+git clone https://github.com/RioTwWks/Secure-Cross-Platform-VPN-Client.git
+cd Secure-Cross-Platform-VPN-Client/secure_vpn_client
 ```
+
+> **Для AI-агентов (Cursor):** см. [.cursor/AGENTS.md](.cursor/AGENTS.md)
 
 ### 2. Установка зависимостей
 ```bash
@@ -79,30 +81,30 @@ flutter pub get
 - **iOS**  
   В Xcode добавьте `com.apple.developer.networking.vpn.api` в entitlements. Подробнее – `/docs/ios_setup.md`.
 
-- **Windows / Linux / macOS**  
-  Следуйте инструкциям плагина `v2ray_box` (скопируйте бинарные файлы ядер в соответствующие папки: `windows/runner/resources/`, `linux/runner/resources/`, `macos/Resources/`).
+- **Linux**  
+  См. `/docs/linux_setup.md` (proxy mode, `fetch_cores.sh`, geo assets).
+
+- **Windows / macOS**  
+  Скопируйте бинарники ядер в `windows/runner/resources/`, `macos/Runner/Resources/` (через `./scripts/fetch_cores.sh` из корня репозитория).
 
 ### 4. Подготовка бинарных файлов ядер (Xray-core, sing-box)
 
-Скачайте готовые сборки с официальных релизов или скомпилируйте сами:
+Из **корня репозитория** (не из `secure_vpn_client/`):
 
 ```bash
-# Пример для Xray-core (Linux)
-wget https://github.com/XTLS/Xray-core/releases/download/v1.8.24/Xray-linux-64.zip
-unzip Xray-linux-64.zip -d assets/binaries/linux/
+./scripts/fetch_cores.sh
 ```
 
-Разместите их в папке `assets/binaries/` согласно структуре:
+Скрипт скачивает актуальные релизы Xray-core и sing-box, а также `geoip.dat` / `geosite.dat` (нужны для подписок xray с правилами `geosite:` / `geoip:`), и копирует их в:
+
 ```
-assets/binaries/
-  android/arm64-v8a/xray
-  android/armeabi-v7a/xray
-  ios/universal/xray
-  windows/x64/xray.exe
-  linux/x64/xray
-  macos/x64/xray
-  (аналогично для sing-box)
+secure_vpn_client/linux/runner/resources/     # xray, sing-box, geoip.dat, geosite.dat
+secure_vpn_client/windows/runner/resources/
+secure_vpn_client/macos/Runner/Resources/
+secure_vpn_client/assets/binaries/            # android, ios, …
 ```
+
+Файлы ядер **не хранятся в git** (см. `.gitignore`). На каждой машине и в CI нужно запускать `fetch_cores.sh` один раз или перед релизной сборкой.
 
 ### 5. Запуск на целевой платформе
 
@@ -132,50 +134,50 @@ flutter run -d macos
 1. Запустите VPN-подключение.
 2. Попробуйте подключиться к локальному SOCKS5-прокси (обычно `127.0.0.1:1080`) без пароля – соединение должно быть отклонено.
 3. Используйте инструмент типа `curl --socks5 127.0.0.1:1080 https://api.ipify.org` – должен вернуться ваш реальный IP, но если вы укажете неверный пароль, запрос не пройдёт.
-4. Запустите стороннее приложение, которое пытается сканировать порт 1080 – доступ должен быть запрещён (благодаря `disallowAllOtherApps: true`).
+4. Скрипт-проверка из корня репозитория: `./scripts/security_probe.sh 1080` — неавторизованное подключение должно завершиться ошибкой.
+
+На **Linux desktop** используется proxy mode: приложения нужно настроить на SOCKS5 `127.0.0.1:1080` с сессионным логином/паролем. Per-app изоляция — на Android (VPN mode).
 
 ---
 
-## 📁 Структура проекта (MVP)
+## 📁 Структура репозитория
 
 ```
-lib/
-├── main.dart                     # Точка входа
-├── services/
-│   └── vpn_service.dart          # Логика VPN с динамической аутентификацией
-├── models/
-│   ├── profile.dart              # Модель конфигурации
-│   └── credentials.dart          # Учетные данные (временные)
-├── screens/
-│   ├── home_screen.dart          # Главный экран (подключить/отключить)
-│   └── config_screen.dart        # Добавление конфигураций по URL/файлу
-├── utils/
-│   ├── config_parser.dart        # Парсинг и инъекция учётных данных в JSON
-│   └── crypto_utils.dart         # Генерация случайных паролей (Random.secure)
-└── widgets/
-    ├── connection_button.dart
-    └── status_indicator.dart
-
-assets/
-└── binaries/                     # Скомпилированные Xray-core и sing-box (см. выше)
-
-android/                          # Нативные файлы Android (разрешения, сервис)
-ios/                              # Нативные файлы iOS (entitlements, Podfile)
-windows/                          # Плагин v2ray_box и ресурсы
-linux/                            # Аналогично
-macos/                            # Аналогично
+Secure-Cross-Platform-VPN-Client/
+├── secure_vpn_client/            # Flutter-приложение (см. secure_vpn_client/README.md)
+│   ├── lib/
+│   │   ├── services/             # VpnService, CredentialService
+│   │   ├── utils/                # ConfigParser, LinkConfigBuilder
+│   │   ├── models/               # Profile, VpnEngine, Credentials
+│   │   ├── providers/            # Riverpod
+│   │   ├── screens/              # Home, Config, Settings
+│   │   └── widgets/
+│   ├── test/                     # Unit + security tests
+│   └── linux/runner/resources/   # xray, sing-box, geo (gitignored)
+├── packages/v2ray_box/           # Форк плагина (Linux desktop plugin, Android patches)
+├── scripts/
+│   ├── fetch_cores.sh            # Загрузка ядер и geo-файлов
+│   ├── security_probe.sh         # Проверка SOCKS auth
+│   └── sync_v2ray_box.sh
+├── docs/                         # android_setup, ios_setup, linux_setup
+└── .cursor/                      # Документация для AI-агентов (AGENTS.md)
 ```
 
 ---
 
 ## 🛠️ Планы развития (после MVP)
 
-- [ ] Графический интерфейс выбора протоколов и настройки маршрутизации  
-- [ ] Поддержка подписей (V2Ray subscription)  
-- [ ] Интеграция с WireGuard через отдельный плагин  
-- [ ] Режим «только нужные приложения» (split tunneling)  
-- [ ] Автоматическое обновление гео-баз (GeoIP, GeoSite)  
-- [ ] Модульные тесты для всех критических компонентов безопасности  
+- [x] Поддержка подписок (V2Ray / sing-box, engine-specific User-Agent)
+- [x] Переключение ядер xray / sing-box
+- [x] Модульные тесты безопасности (`test/security_test.dart`, `test/config_parser_test.dart`)
+- [x] Linux desktop: proxy mode, все 4 комбинации engine × profile
+- [ ] Выбор сервера из списка подписки (сейчас — первый реальный entry)
+- [ ] Android / iOS / Windows / macOS — полноценный E2E на устройствах
+- [ ] Системный proxy на desktop
+- [ ] Split tunneling (per-app) на мобильных платформах
+- [ ] CI: `flutter analyze` + `flutter test` на push
+
+Подробный backlog: [.cursor/tasks.md](.cursor/tasks.md)
 
 ---
 
@@ -183,7 +185,7 @@ macos/                            # Аналогично
 
 Мы приветствуем любые исправления и улучшения. Пожалуйста, перед отправкой Pull Request:
 
-1. Убедитесь, что ваш код соответствует `analysis_options.yaml` (линтер Flutter).
+1. Убедитесь, что `flutter analyze` проходит без ошибок (`secure_vpn_client/analysis_options.yaml`).
 2. Добавьте тесты для новой функциональности безопасности.
 3. Проверьте, что уязвимость SOCKS5 не появляется (используйте сценарии из `test/security_test.dart`).
 

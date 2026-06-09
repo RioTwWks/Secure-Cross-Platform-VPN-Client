@@ -1,34 +1,75 @@
-# Project Tasks - MVP
+# Project Tasks
 
-## Completed
-- [x] Project structure created
-- [x] .cursorrules configured
-- [x] Added v2ray_box plugin (local fork in packages/v2ray_box)
-- [x] Implement dynamic credential generation service (Dart)
-- [x] Write platform channel to pass credentials to Go binary
-- [x] Build Xray-core for all platforms (scripts/fetch_cores.sh)
-- [x] Build sing-box for all platforms (scripts/fetch_cores.sh)
-- [x] Modify v2ray_box plugin to accept inbound credentials
-- [x] Add UI for subscription/profile management
-- [x] Implement engine switching
-- [x] Test vulnerability: attempt to connect to local SOCKS5 without password -> should fail (security_test.dart + security_probe.sh)
-- [x] Write integration tests
+> Agent entrypoint: [AGENTS.md](AGENTS.md) · Architecture: [architecture.md](architecture.md)
 
-## Linux desktop — verified working
-- [x] Linux plugin: setup / stop / start_with_json, status channel, credentials channel
-- [x] Core binary discovery (`bundle/lib/resources/xray`, `sing-box`)
-- [x] Config write fix (`active_config.json` path + stale directory cleanup)
-- [x] Core stderr surfaced in UI (real startup errors, not generic message)
-- [x] Xray geo assets: `geoip.dat` / `geosite.dat` via fetch_cores.sh + copy to `~/.local/share/v2ray_box/assets/`
-- [x] Subscription fetch: engine-specific User-Agent (v2rayNG / sing-box)
-- [x] Subscription parsing: skip decoy links/entries, v2rayNG JSON array → first real server
-- [x] Config sanitization for desktop proxy mode (strip tun/mixed/dns inbounds, legacy sing-box DNS migration)
-- [x] Xray subscription routing fix (`outboundTag: proxy` → real outbound tag)
-- [x] End-to-end connect on Linux: xray/singbox × subscription/config link (all 4 combinations)
+## Completed — MVP core
 
-## Security Checklist
+- [x] Project structure, `.cursorrules`, Riverpod UI
+- [x] `CredentialService` + secure SOCKS injection (`ConfigParser`)
+- [x] Local fork `packages/v2ray_box` with credential channel
+- [x] `scripts/fetch_cores.sh` (xray, sing-box, geo assets)
+- [x] Engine switching (xray / singbox)
+- [x] Profile management (config link + subscription URL)
+- [x] Security tests + `security_probe.sh`
+- [x] Integration / widget tests
+
+## Completed — Linux desktop
+
+- [x] Linux plugin: setup, stop, start_with_json, status + credentials channels
+- [x] Core discovery `bundle/lib/resources/`
+- [x] Config write path fix + stale directory cleanup
+- [x] Core stderr → UI error message
+- [x] Geo assets copy to `~/.local/share/v2ray_box/assets/`
+- [x] Subscription UA + decoy skipping + v2rayNG array selection
+- [x] proxyOnly inbound sanitization + sing-box DNS migration
+- [x] Xray routing `proxy` tag rewrite
+- [x] **Verified:** xray/singbox × subscription/config (4 combinations)
+
+## Security checklist
+
 - [x] No hardcoded credentials
-- [x] Local port bound only to 127.0.0.1
-- [x] Authentication mandatory
-- [x] Credentials regenerated per session
-- [x] Credentials cleared from memory after stop
+- [x] Bind 127.0.0.1 only
+- [x] Mandatory SOCKS auth
+- [x] Per-session credentials
+- [x] Credentials cleared on stop
+
+---
+
+## Backlog — platform parity
+
+- [ ] Android: end-to-end connect on physical device
+- [ ] iOS: Network Extension + connect smoke test
+- [ ] Windows: implement desktop plugin (mirror Linux `desktop_core.cc`)
+- [ ] macOS: verify proxy mode connect with bundled cores
+- [ ] System proxy integration on desktop (`setSystemProxy: true`)
+
+## Backlog — UX & profiles
+
+- [ ] Server picker when subscription returns multiple v2rayNG entries (currently first real entry)
+- [ ] Profile import from clipboard / QR
+- [ ] Connection stats + latency test in UI
+- [ ] Localized strings (RU/EN)
+
+## Backlog — security & hardening
+
+- [ ] Auto-run `security_probe.sh` in CI when Linux integration test connects
+- [ ] Fail closed if geo assets missing and config contains geosite/geoip rules
+- [ ] Audit sing-box `mixed` / deprecated DNS paths on mobile VPN mode
+- [ ] Certificate pinning for subscription fetch (optional)
+
+## Backlog — engineering
+
+- [ ] CI: `flutter analyze`, `flutter test` on push
+- [ ] Reduce `packages/v2ray_box/example/` from fork if not needed (size)
+- [ ] `docs/linux_setup.md` in `docs/` (mirror android/ios)
+- [ ] Publish fork separately or document patch set vs upstream
+
+---
+
+## Agent maintenance
+
+When fixing a new connect/config bug:
+
+1. Add symptom → fix to [troubleshooting.md](troubleshooting.md)
+2. Add regression test if Dart-side
+3. Update [tasks.md](tasks.md) checklist or backlog

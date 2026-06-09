@@ -1,0 +1,36 @@
+---
+description: Secure VPN Client — project context, layout, and agent constraints
+alwaysApply: true
+---
+
+# Secure Cross-Platform VPN Client
+
+Flutter VPN app in `secure_vpn_client/`. Local plugin fork in `packages/v2ray_box/`.
+
+## Read first
+
+- `.cursor/AGENTS.md` — repo map and golden rules
+- `.cursor/troubleshooting.md` — known Linux/subscription failures
+
+## Non-negotiable security
+
+- SOCKS inbound: `127.0.0.1` only, `auth: password`, per-session random credentials
+- Never bind `0.0.0.0`, never use unauthenticated port 7890
+- Wipe credentials and config files on disconnect
+- Do not log credentials or write them to disk
+
+## Desktop (Linux/Windows/macOS)
+
+- Use **proxy mode** (`VpnMode.proxy`), not TUN
+- `ConfigParser.injectSecureSocksInbound(..., proxyOnly: true)` strips VPN-only inbounds
+- Core binaries are **not in git** — `scripts/fetch_cores.sh`
+
+## Edit targets
+
+- App logic: `secure_vpn_client/lib/`
+- Native/Linux: `packages/v2ray_box/linux/`
+- Do not edit files under `build/` or `.plugin_symlinks/` — they are ephemeral
+
+## Commands (from `secure_vpn_client/`)
+
+`flutter analyze` · `flutter test` · `flutter run -d linux` (full restart after native changes)

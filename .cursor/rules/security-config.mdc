@@ -1,0 +1,51 @@
+---
+description: Security rules for VPN config generation and SOCKS inbounds
+globs: secure_vpn_client/lib/utils/**,secure_vpn_client/lib/services/**,packages/v2ray_box/**
+alwaysApply: false
+---
+
+# Security — config & credentials
+
+## SOCKS inbound (both engines)
+
+**Xray** — in `ConfigParser._buildXraySocksInbound`:
+
+```json
+{
+  "tag": "secure-socks-in",
+  "listen": "127.0.0.1",
+  "port": 1080,
+  "protocol": "socks",
+  "settings": { "auth": "password", "accounts": [{ "user": "...", "pass": "..." }] }
+}
+```
+
+**sing-box** — `type: socks`, `listen: 127.0.0.1`, `listen_port: 1080`, `users: [...]`
+
+## Credential lifecycle
+
+1. `CredentialService.generate()` on connect
+2. `MethodChannel('secure_vpn/credentials').setSessionCredentials`
+3. Native sets env vars for child process (Linux) or injects into config (Android)
+4. `clearSessionCredentials` + `CredentialService.clear()` on disconnect
+5. `wipe_sensitive_files()` removes `active_config.json`
+
+## Config validation
+
+`ConfigParser.validateSecure()` rejects:
+
+- SOCKS on non-127.0.0.1
+- Port 7890
+- Missing password auth
+
+## Subscription hardening
+
+- Skip decoy links (`fake_ip_for_sub_link`, date-pattern trojan)
+- Skip decoy v2rayNG array entries (no proxy outbound)
+- `proxyOnly`: remove all existing inbounds on desktop before adding secure SOCKS
+
+## Never
+
+- Hardcode credentials
+- Log passwords
+- Commit real subscription URLs in tests (use synthetic fixtures)
