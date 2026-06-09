@@ -9,4 +9,3 @@ linter:
     - secure_pubspec_urls
     - no_leading_underscores_for_local_identifiers
     - always_declare_return_types
-    - avoid_unused_parameters

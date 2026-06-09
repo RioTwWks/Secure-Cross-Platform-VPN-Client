@@ -1,0 +1,24 @@
+{
+    "mcpServers": {
+        // --- Основной MCP-сервер для Flutter/Dart (должен идти первым)---
+        "dart-mcp-server": {
+            "command": "dart",
+            "args": ["mcp-server", "--force-roots-fallback"]
+        },
+        // --- MCP-сервер для инспекции UI с Marionette ---
+        // Cursor не применяет cwd/${workspaceFolder} — явный cd в bash
+        "marionette": {
+            "command": "/bin/bash",
+            "args": [
+                "-c",
+                "cd /home/ivan/Secure-Cross-Platform-VPN-Client/secure_vpn_client && exec /snap/bin/flutter pub run marionette_mcp"
+            ]
+        },
+        // --- MCP-сервер для статического анализа с Semgrep ---
+        // snap-версия semgrep не поддерживает `mcp` — используем pip-установку
+        "semgrep": {
+            "command": "/home/ivan/.local/venvs/semgrep/bin/semgrep",
+            "args": ["mcp"]
+        }
+    }
+}
