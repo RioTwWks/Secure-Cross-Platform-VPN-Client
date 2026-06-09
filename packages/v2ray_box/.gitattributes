@@ -1,0 +1,4 @@
+*.aar filter=lfs diff=lfs merge=lfs -text
+*.dylib filter=lfs diff=lfs merge=lfs -text
+*.framework filter=lfs diff=lfs merge=lfs -text
+*.xcframework filter=lfs diff=lfs merge=lfs -text

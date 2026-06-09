@@ -1,0 +1,10 @@
+# Flutter-related
+**/Flutter/ephemeral/
+**/Pods/
+
+# Xcode-related
+**/dgph
+**/xcuserdata/
+
+# HiddifyCore binary (download from https://github.com/hiddify/hiddify-core/releases)
+Frameworks/*.dylib

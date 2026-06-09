@@ -43,3 +43,13 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Core binaries (download via scripts/fetch_cores.sh)
+assets/binaries/**
+!assets/binaries/.gitkeep
+linux/runner/resources/*
+!linux/runner/resources/.gitkeep
+windows/runner/resources/*
+!windows/runner/resources/.gitkeep
+macos/Runner/Resources/*
+!macos/Runner/Resources/.gitkeep

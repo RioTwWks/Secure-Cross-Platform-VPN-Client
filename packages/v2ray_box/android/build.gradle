@@ -1,0 +1,78 @@
+group = "com.example.v2ray_box"
+version = "1.0-SNAPSHOT"
+
+buildscript {
+    ext.kotlin_version = "2.2.20"
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.11.1")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: "com.android.library"
+apply plugin: "kotlin-android"
+
+android {
+    namespace = "com.example.v2ray_box"
+
+    compileSdk = 36
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_17
+    }
+
+    sourceSets {
+        main.java.srcDirs += "src/main/kotlin"
+        test.java.srcDirs += "src/test/kotlin"
+    }
+
+    defaultConfig {
+        minSdk = 24
+    }
+
+    buildFeatures {
+        aidl = true
+    }
+
+    dependencies {
+        compileOnly fileTree(dir: 'libs', include: ['*.jar'])
+        compileOnly fileTree(dir: 'libs', include: ['libxray.aar'])
+        compileOnly files("${rootProject.projectDir}/app/libs/libxray.aar")
+        implementation 'com.google.code.gson:gson:2.10.1'
+        implementation 'androidx.core:core-ktx:1.12.0'
+        implementation 'androidx.appcompat:appcompat:1.6.1'
+        implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.6.2'
+        implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+        testImplementation("org.jetbrains.kotlin:kotlin-test")
+        testImplementation("org.mockito:mockito-core:5.0.0")
+    }
+
+    testOptions {
+        unitTests.all {
+            useJUnitPlatform()
+
+            testLogging {
+               events "passed", "skipped", "failed", "standardOut", "standardError"
+               outputs.upToDateWhen {false}
+               showStandardStreams = true
+            }
+        }
+    }
+}

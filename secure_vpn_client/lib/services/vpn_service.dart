@@ -1,84 +1,185 @@
-// lib/services/vpn_service.dart
+import 'dart:convert';
+import 'dart:io' show Platform;
 
-import 'dart:math';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:v2ray_box/v2ray_box.dart';
 
+import '../models/credentials.dart';
+import '../models/profile.dart';
+import '../models/vpn_engine.dart';
+import '../utils/config_parser.dart';
+import '../utils/link_config_builder.dart';
+import 'credential_service.dart';
+
 class VpnService {
-  static final V2rayBox _v2rayBox = V2rayBox();
+  VpnService({
+    V2rayBox? v2rayBox,
+    CredentialService? credentialService,
+    this.applicationId = 'com.example.secure_vpn_client',
+    this.socksPort = ConfigParser.defaultSocksPort,
+  })  : _v2rayBox = v2rayBox ?? V2rayBox(),
+        _credentialService = credentialService ?? CredentialService();
 
-  static Future<void> startVpn(String configUrl) async {
-    // 1. Генерируем уникальные логин и пароль для этой сессии
-    final credentials = _generateRandomCredentials();
+  final V2rayBox _v2rayBox;
+  final CredentialService _credentialService;
+  final String applicationId;
+  final int socksPort;
 
-    // 2. Асинхронно обрабатываем конфигурацию и встраиваем в неё учётные данные.
-    final secureConfig = await _injectCredentialsIntoConfig(
-      configUrl,
+  bool _initialized = false;
+  SessionCredentials? _sessionCredentials;
+  VpnEngine _engine = VpnEngine.xray;
+
+  SessionCredentials? get sessionCredentials => _sessionCredentials;
+  VpnEngine get engine => _engine;
+  V2rayBox get v2rayBox => _v2rayBox;
+
+  Future<void> initialize() async {
+    if (_initialized) {
+      return;
+    }
+    await _v2rayBox.initialize(notificationStopButtonText: 'Stop');
+    final desktopProxy = !kIsWeb &&
+        (Platform.isLinux || Platform.isWindows || Platform.isMacOS);
+    if (desktopProxy) {
+      await _v2rayBox.setConfigOptions(
+        const ConfigOptions(enableTun: false, setSystemProxy: false),
+      );
+    }
+    await _v2rayBox.setServiceMode(
+      desktopProxy ? VpnMode.proxy : VpnMode.vpn,
+    );
+    await _v2rayBox.setCoreEngine(_engine.coreName);
+    await _configurePerAppProxy();
+    _initialized = true;
+  }
+
+  Future<void> setEngine(VpnEngine engine, {bool disconnectIfNeeded = true}) async {
+    if (_engine == engine) {
+      return;
+    }
+
+    if (disconnectIfNeeded && _initialized) {
+      await disconnect();
+    }
+
+    _engine = engine;
+    if (_initialized) {
+      await _v2rayBox.setCoreEngine(engine.coreName);
+    }
+  }
+
+  Future<String> resolveProfileConfig(Profile profile) async {
+    final raw = profile.type == ProfileType.subscription
+        ? await ConfigParser.parseFromUrl(
+            profile.configLink,
+            engine: _engine,
+          )
+        : profile.configLink.trim();
+
+    if (raw.startsWith('{')) {
+      return raw;
+    }
+    if (raw.startsWith('[')) {
+      final decoded = jsonDecode(raw) as List<dynamic>;
+      if (decoded.isEmpty || decoded.first is! Map) {
+        throw StateError('Subscription JSON array is empty');
+      }
+      return jsonEncode(decoded.first);
+    }
+
+    if (LinkConfigBuilder.isConfigLink(raw)) {
+      return LinkConfigBuilder.buildFromLink(raw, _engine);
+    }
+
+    try {
+      return await _v2rayBox.generateConfig(raw);
+    } on PlatformException {
+      return LinkConfigBuilder.buildFromLink(raw, _engine);
+    }
+  }
+
+  Future<void> connect(Profile profile) async {
+    await initialize();
+
+    final permissionGranted = await _v2rayBox.checkVpnPermission();
+    if (!permissionGranted) {
+      await _v2rayBox.requestVpnPermission();
+    }
+
+    final rawConfig = await resolveProfileConfig(profile);
+    final credentials = _credentialService.generate();
+    final desktopProxy = !kIsWeb &&
+        (Platform.isLinux || Platform.isWindows || Platform.isMacOS);
+    final secureConfig = ConfigParser.injectSecureSocksInbound(
+      rawConfig,
       credentials,
+      _engine,
+      socksPort: socksPort,
+      proxyOnly: desktopProxy,
     );
 
-    // 3. Запускаем VPN, передавая защищённую конфигурацию ядру.
-    await _v2rayBox.startVpn(
-      config: secureConfig, // Используем модифицированную конфигурацию
-      // Этот параметр говорит ядру, что нужно слушать localhost:1080
-      // с авторизацией по нашим логину и паролю.
-      socksPort: 1080,
-      enableStatistics: true,
-      // --- Важный параметр для безопасности! ---
-      // Разрешаем доступ к прокси только приложениям, созданным нами.
-      // Это предотвращает подслушивание трафика другими приложениями.
-      allowApps: ['com.yourcompany.secure_vpn_client'],
-      disallowAllOtherApps:
-          true, // Запрещаем всем остальным приложениям доступ.
+    final validationError = await _v2rayBox.checkConfigJson(secureConfig);
+    if (validationError.isNotEmpty) {
+      _credentialService.clear(credentials);
+      throw StateError('Invalid VPN config: $validationError');
+    }
+
+    await _setSessionCredentials(credentials);
+    final connected = await _v2rayBox.connectWithJson(
+      secureConfig,
+      name: profile.name,
     );
+    if (!connected) {
+      await _clearSessionCredentials();
+      _credentialService.clear(credentials);
+      throw StateError('Failed to start VPN');
+    }
 
-    // 4. По-хорошему, здесь нужно сохранить credentials для успешного
-    //    завершения работы или в лог для последующего анализа.
-    //    Но ни в коем случае не передавайте их на внешние сервера
-    //    и не выводите в пользовательский интерфейс!
+    _sessionCredentials = credentials;
   }
 
-  static void stopVpn() {
-    _v2rayBox.stopVpn();
-    // TODO: Очистить сгенерированные учётные данные из памяти
+  Future<void> disconnect() async {
+    if (_initialized) {
+      await _v2rayBox.disconnect();
+    }
+    if (_sessionCredentials != null) {
+      _credentialService.clear(_sessionCredentials!);
+      _sessionCredentials = null;
+    }
+    await _clearSessionCredentials();
   }
 
-  // Генерация случайной строки заданной длины
-  static String _generateRandomString(int length) {
-    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    final random = Random.secure();
-    return String.fromCharCodes(
-      Iterable.generate(
-        length,
-        (_) => chars.codeUnitAt(random.nextInt(chars.length)),
-      ),
-    );
-  }
-
-  static _Credentials _generateRandomCredentials() {
-    return _Credentials(
-      username: _generateRandomString(12),
-      password: _generateRandomString(24),
+  Future<void> _configurePerAppProxy() async {
+    if (kIsWeb) {
+      return;
+    }
+    await _v2rayBox.setPerAppProxyMode(PerAppProxyMode.include);
+    await _v2rayBox.setPerAppProxyList(
+      [applicationId],
+      PerAppProxyMode.include,
     );
   }
 
-  static Future<String> _injectCredentialsIntoConfig(
-    String configUrl,
-    _Credentials creds,
-  ) async {
-    // --- Это главное место, где нужна ваша логика обработки. ---
-    // 1. Загружаем конфигурацию по URL (или из файла).
-    // 2. Парсим JSON.
-    // 3. Находим inbound с протоколом socks.
-    // 4. Вставляем в него наши creds.username и creds.password.
-    // 5. Возвращаем изменённую конфигурацию как строку.
-    // --- Пока что просто вернём исходную конфигурацию (НЕБЕЗОПАСНО). ---
-    // В реальном проекте здесь будет полноценная реализация.
-    return configUrl;
+  Future<void> _setSessionCredentials(SessionCredentials credentials) async {
+    const channel = MethodChannel('secure_vpn/credentials');
+    try {
+      await channel.invokeMethod<void>('setSessionCredentials', {
+        'username': credentials.username,
+        'password': credentials.password,
+        'port': socksPort,
+      });
+    } catch (_) {
+      // Native channel may be unavailable on some platforms during tests.
+    }
   }
-}
 
-class _Credentials {
-  final String username;
-  final String password;
-  _Credentials({required this.username, required this.password});
+  Future<void> _clearSessionCredentials() async {
+    const channel = MethodChannel('secure_vpn/credentials');
+    try {
+      await channel.invokeMethod<void>('clearSessionCredentials');
+    } catch (_) {
+      // Ignore when channel is not registered.
+    }
+  }
 }
