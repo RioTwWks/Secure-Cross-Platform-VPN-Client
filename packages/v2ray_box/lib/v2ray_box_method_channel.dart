@@ -334,10 +334,19 @@ class MethodChannelV2rayBox extends V2rayBoxPlatform {
   }
 
   @override
-  Future<bool> startWithJson(String configJson, String name) async {
+  Future<bool> startWithJson(
+    String configJson,
+    String name, {
+    String? socksUsername,
+    String? socksPassword,
+    int? socksPort,
+  }) async {
     final result = await methodChannel.invokeMethod<bool>('start_with_json', {
       'config': configJson,
       'name': name,
+      if (socksUsername != null) 'socksUsername': socksUsername,
+      if (socksPassword != null) 'socksPassword': socksPassword,
+      if (socksPort != null) 'socksPort': socksPort,
     });
     return result ?? false;
   }

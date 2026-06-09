@@ -10,6 +10,7 @@
 #include <string>
 
 #include "desktop_core.h"
+#include "system_proxy.h"
 #include "v2ray_box_plugin_private.h"
 
 #define V2RAY_BOX_PLUGIN(obj) \
@@ -261,11 +262,28 @@ static void v2ray_box_plugin_handle_method_call(V2rayBoxPlugin* self,
               "Failed to write config file: " + path;
           response = make_error("START_ERROR", write_error.c_str());
         } else {
+          FlValue* socks_username = fl_value_lookup_string(args, "socksUsername");
+          FlValue* socks_password = fl_value_lookup_string(args, "socksPassword");
+          FlValue* socks_port_val = fl_value_lookup_string(args, "socksPort");
+          if (fl_value_get_type(socks_username) == FL_VALUE_TYPE_STRING) {
+            g_socks_user = fl_value_get_string(socks_username);
+          }
+          if (fl_value_get_type(socks_password) == FL_VALUE_TYPE_STRING) {
+            g_socks_pass = fl_value_get_string(socks_password);
+          }
+          if (fl_value_get_type(socks_port_val) == FL_VALUE_TYPE_INT) {
+            g_socks_port = static_cast<int>(fl_value_get_int(socks_port_val));
+          }
           apply_session_credentials();
           const std::string start_error = v2ray_box::DesktopCore::Instance().Start(
               g_core_engine, path, v2ray_box::GetWorkingDirectory());
           if (start_error.empty()) {
             self->is_running = TRUE;
+            if (v2ray_box::ConfigOptionsSetSystemProxy(g_config_options) &&
+                !g_socks_user.empty()) {
+              v2ray_box::SystemProxy::Enable("127.0.0.1", g_socks_port + 1,
+                                             g_socks_user, g_socks_pass);
+            }
             emit_status(self, "Started");
             response = make_success_bool(true);
           } else {
@@ -279,6 +297,7 @@ static void v2ray_box_plugin_handle_method_call(V2rayBoxPlugin* self,
     }
   } else if (strcmp(method, "stop") == 0) {
     emit_status(self, "Stopping");
+    v2ray_box::SystemProxy::Disable();
     v2ray_box::DesktopCore::Instance().Stop();
     self->is_running = FALSE;
     clear_session_credentials();
@@ -344,6 +363,7 @@ static void v2ray_box_plugin_dispose(GObject* object) {
   g_clear_object(&self->alerts_channel);
   g_clear_object(&self->ping_channel);
   g_clear_object(&self->logs_channel);
+  v2ray_box::SystemProxy::Disable();
   v2ray_box::DesktopCore::Instance().Stop();
   G_OBJECT_CLASS(v2ray_box_plugin_parent_class)->dispose(object);
 }

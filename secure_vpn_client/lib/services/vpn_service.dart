@@ -43,7 +43,7 @@ class VpnService {
         (Platform.isLinux || Platform.isWindows || Platform.isMacOS);
     if (desktopProxy) {
       await _v2rayBox.setConfigOptions(
-        const ConfigOptions(enableTun: false, setSystemProxy: false),
+        const ConfigOptions(enableTun: false, setSystemProxy: true),
       );
     }
     await _v2rayBox.setServiceMode(
@@ -102,6 +102,10 @@ class VpnService {
   Future<void> connect(Profile profile) async {
     await initialize();
 
+    if (_sessionCredentials != null) {
+      await disconnect();
+    }
+
     final permissionGranted = await _v2rayBox.checkVpnPermission();
     if (!permissionGranted) {
       await _v2rayBox.requestVpnPermission();
@@ -129,6 +133,9 @@ class VpnService {
     final connected = await _v2rayBox.connectWithJson(
       secureConfig,
       name: profile.name,
+      socksUsername: credentials.username,
+      socksPassword: credentials.password,
+      socksPort: socksPort,
     );
     if (!connected) {
       await _clearSessionCredentials();

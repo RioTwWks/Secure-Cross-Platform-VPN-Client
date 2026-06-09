@@ -13,6 +13,36 @@
 namespace v2ray_box {
 namespace {
 
+std::string ShellQuote(const std::string& value) {
+  std::string quoted = "'";
+  for (const char ch : value) {
+    if (ch == '\'') {
+      quoted += "'\\''";
+    } else {
+      quoted += ch;
+    }
+  }
+  quoted += "'";
+  return quoted;
+}
+
+void KillOrphanCoreProcesses(const std::string& config_path) {
+  const std::string cmd =
+      "pkill -f " + ShellQuote(config_path) + " >/dev/null 2>&1";
+  std::system(cmd.c_str());
+  usleep(200000);
+}
+
+void KillProcessOnPort(int port) {
+  if (port <= 0) {
+    return;
+  }
+  const std::string cmd =
+      "fuser -k " + std::to_string(port) + "/tcp >/dev/null 2>&1";
+  std::system(cmd.c_str());
+  usleep(100000);
+}
+
 constexpr const char* kXrayName = "xray";
 constexpr const char* kSingboxName = "sing-box";
 
@@ -309,6 +339,17 @@ std::string DesktopCore::Start(const std::string& engine,
                                const std::string& config_path,
                                const std::string& work_dir) {
   Stop();
+  KillOrphanCoreProcesses(config_path);
+
+  int socks_port = 1080;
+  if (const char* port_env = getenv("SECURE_VPN_SOCKS_PORT")) {
+    socks_port = std::atoi(port_env);
+  }
+  if (socks_port <= 0) {
+    socks_port = 1080;
+  }
+  KillProcessOnPort(socks_port);
+  KillProcessOnPort(socks_port + 1);
 
   const std::string binary = FindBinary(engine);
   if (binary.empty()) {

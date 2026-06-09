@@ -255,8 +255,20 @@ class V2rayBox {
 
   /// Start VPN with a raw Xray JSON config (bypasses link parsing)
   /// Useful when you want to edit the config before connecting
-  Future<bool> connectWithJson(String configJson, {String name = ''}) {
-    return V2rayBoxPlatform.instance.startWithJson(configJson, name);
+  Future<bool> connectWithJson(
+    String configJson, {
+    String name = '',
+    String? socksUsername,
+    String? socksPassword,
+    int? socksPort,
+  }) {
+    return V2rayBoxPlatform.instance.startWithJson(
+      configJson,
+      name,
+      socksUsername: socksUsername,
+      socksPassword: socksPassword,
+      socksPort: socksPort,
+    );
   }
 
   /// Get current log buffer

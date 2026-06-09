@@ -109,7 +109,7 @@ void main() {
           .whereType<Map>()
           .map((inbound) => inbound['tag'])
           .toList();
-      expect(tags, ['secure-socks-in']);
+      expect(tags, ['secure-socks-in', 'secure-http-in']);
     });
 
     test('normalizes v2rayNG JSON array subscriptions', () {

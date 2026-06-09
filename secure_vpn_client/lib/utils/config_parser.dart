@@ -180,6 +180,14 @@ class ConfigParser {
       ...(config['inbounds'] as List<dynamic>? ?? const []),
       inbound,
     ];
+    if (proxyOnly) {
+      final httpPort = socksPort + 1;
+      inbounds.add(
+        engine == VpnEngine.singbox
+            ? _buildSingboxHttpInbound(credentials, httpPort)
+            : _buildXrayHttpInbound(credentials, httpPort),
+      );
+    }
     config['inbounds'] = inbounds;
 
     validateSecure(jsonEncode(config), engine: engine);
@@ -209,6 +217,44 @@ class ConfigParser {
         ],
         'udp': true,
       },
+    };
+  }
+
+  static Map<String, dynamic> _buildXrayHttpInbound(
+    SessionCredentials credentials,
+    int httpPort,
+  ) {
+    return {
+      'tag': 'secure-http-in',
+      'listen': '127.0.0.1',
+      'port': httpPort,
+      'protocol': 'http',
+      'settings': {
+        'accounts': [
+          {
+            'user': credentials.username,
+            'pass': credentials.password,
+          },
+        ],
+      },
+    };
+  }
+
+  static Map<String, dynamic> _buildSingboxHttpInbound(
+    SessionCredentials credentials,
+    int httpPort,
+  ) {
+    return {
+      'type': 'http',
+      'tag': 'secure-http-in',
+      'listen': '127.0.0.1',
+      'listen_port': httpPort,
+      'users': [
+        {
+          'username': credentials.username,
+          'password': credentials.password,
+        },
+      ],
     };
   }
 

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:v2ray_box/v2ray_box.dart';
 
+import '../models/credentials.dart';
 import '../models/profile.dart';
 import '../models/vpn_engine.dart';
 import '../services/vpn_service.dart';
@@ -23,6 +24,11 @@ final vpnServiceProvider = Provider<VpnService>((ref) {
 final vpnStatusProvider = StreamProvider<VpnStatus>((ref) {
   final service = ref.watch(vpnServiceProvider);
   return service.v2rayBox.watchStatus();
+});
+
+final sessionCredentialsProvider = Provider<SessionCredentials?>((ref) {
+  ref.watch(vpnStatusProvider);
+  return ref.watch(vpnServiceProvider).sessionCredentials;
 });
 
 final vpnStatsProvider = StreamProvider<VpnStats>((ref) {

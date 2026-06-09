@@ -196,7 +196,13 @@ abstract class V2rayBoxPlatform extends PlatformInterface {
   }
 
   /// Start VPN with raw Xray JSON config (bypassing link parsing)
-  Future<bool> startWithJson(String configJson, String name) {
+  Future<bool> startWithJson(
+    String configJson,
+    String name, {
+    String? socksUsername,
+    String? socksPassword,
+    int? socksPort,
+  }) {
     throw UnimplementedError('startWithJson() has not been implemented.');
   }
 

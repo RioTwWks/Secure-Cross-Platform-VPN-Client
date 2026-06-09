@@ -160,7 +160,14 @@ class MockV2rayBoxPlatform
   Future<String> checkConfigJson(String configJson) async => '';
 
   @override
-  Future<bool> startWithJson(String configJson, String name) async => true;
+  Future<bool> startWithJson(
+    String configJson,
+    String name, {
+    String? socksUsername,
+    String? socksPassword,
+    int? socksPort,
+  }) async =>
+      true;
 
   @override
   Future<List<String>> getLogs() async => ['log line 1', 'log line 2'];
